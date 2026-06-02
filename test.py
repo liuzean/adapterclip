@@ -382,7 +382,7 @@ if __name__ == '__main__':
     parser.add_argument("--visual_learner", type=int, choices=[0, 1], default=1, help="Enable visual adapter (0/1)")
     parser.add_argument("--textual_learner", type=int, choices=[0, 1], default=1, help="Enable textual adapter (0/1)")
     parser.add_argument("--pq_learner", type=int, choices=[0, 1], default=1, help="Enable prompt-query adapter (0/1)")
-    parser.add_argument("--eval_metrics", type=str, nargs="+", default=['I-AUROC', 'I-AP', 'I-F1max', 'P-AUROC', 'P-AP', 'P-F1max', 'P-AUPRO'], help='evaluation metrics')
+    parser.add_argument("--eval_metrics", type=str, nargs="+", default=['I-AUROC', 'I-AP', 'I-F1max', 'P-AUROC', 'P-AP', 'P-F1max'], help='evaluation metrics')
     parser.add_argument("--fusion_type", type=str, default="average_mean", help='fusion type')
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
