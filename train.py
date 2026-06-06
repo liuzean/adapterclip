@@ -167,7 +167,13 @@ def train(args):
 
             # ====================== pq_adapter ======================
             if args.pq_learner:
-                global_logit, local_score_list, align_score_list = pq_learner(query_feats, query_patch_feats, prompt_feats, prompt_patch_feats)
+                global_logit, local_score_list, align_score_list = pq_learner(
+                    query_feats,
+                    query_patch_feats,
+                    prompt_feats,
+                    prompt_patch_feats,
+                    pq_topk=args.pq_topk,
+                )
 
                 for i in range(len(global_logit)):
                     global_loss += F.cross_entropy(global_logit[i], label.long().cuda())
@@ -219,6 +225,7 @@ if __name__ == '__main__':
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", action="store_true", help="Enable context feature")
+    parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter")
 
     args = parser.parse_args()
     setup_seed(args.seed)
