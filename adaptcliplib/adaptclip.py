@@ -751,7 +751,10 @@ class PQAdapter(nn.Module):
         self.global_adapter = nn.ModuleList([global_adapter for i in range(layers_num)])
 
 
-    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats):
+    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats, pq_topk=1):
+        if pq_topk < 1:
+            raise ValueError("pq_topk must be >= 1")
+
         global_logits, local_scores, align_scores = [], [], []
         # patch-level
         for lay_idx, query_patch_feat in enumerate(query_patch_feats):
@@ -767,12 +770,22 @@ class PQAdapter(nn.Module):
             prompt_patch_feat = prompt_patch_feat[:, :, 1:, :]  # B*L*D note assume shot >= 1
             prompt_patch_feat = prompt_patch_feat.reshape(b, -1, dim)
 
-            align_score, min_idx = torch.min(1.0 - torch.bmm(query_patch_feat, prompt_patch_feat.permute(0, 2, 1)), dim = -1)
+            distance = 1.0 - torch.bmm(query_patch_feat, prompt_patch_feat.permute(0, 2, 1))
+            if pq_topk == 1:
+                align_score, min_idx = torch.min(distance, dim = -1)
+                align_prompt_feat = prompt_patch_feat[torch.arange(min_idx.size(0), device=min_idx.device).unsqueeze(1), min_idx]
+            else:
+                topk = min(pq_topk, distance.shape[-1])
+                topk_dist, topk_idx = torch.topk(distance, k=topk, dim=-1, largest=False)
+                topk_weight = torch.softmax(-topk_dist, dim=-1)
+                batch_idx = torch.arange(b, device=topk_idx.device).view(b, 1, 1).expand_as(topk_idx)
+                topk_prompt_feat = prompt_patch_feat[batch_idx, topk_idx]
+                align_prompt_feat = (topk_prompt_feat * topk_weight.unsqueeze(-1)).sum(dim=2)
+                align_score = (topk_dist * topk_weight).sum(dim=-1)
+
             align_score = align_score.reshape(b, 1, self.img_size//self.patch_size, self.img_size//self.patch_size)
             align_score = F.interpolate(align_score, size=(self.img_size, self.img_size), mode='bilinear')
             align_scores.append(align_score)
-
-            align_prompt_feat = prompt_patch_feat[torch.arange(min_idx.size(0)).unsqueeze(1), min_idx]
 
             query_patch_feat = query_patch_feat.permute(0, 2, 1).reshape(b, dim, self.img_size//self.patch_size, self.img_size//self.patch_size)
             align_prompt_feat = align_prompt_feat.permute(0, 2, 1).reshape(b, dim, self.img_size//self.patch_size, self.img_size//self.patch_size)

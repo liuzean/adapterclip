@@ -268,7 +268,13 @@ def test(args):
         # ====================== pq_adapter ======================
         if args.pq_learner and k_shots > 0:
 
-            global_pq_logit, local_pq_map_list, align_score_list = pq_learner(query_feats, query_patch_feats, prompt_feats, prompt_patch_feats)
+            global_pq_logit, local_pq_map_list, align_score_list = pq_learner(
+                query_feats,
+                query_patch_feats,
+                prompt_feats,
+                prompt_patch_feats,
+                pq_topk=args.pq_topk,
+            )
 
             local_pq_map_list = [x[:, 1].unsqueeze(1) for x in local_pq_map_list]
             local_pq_map = torch.concat(local_pq_map_list, dim=1).mean(dim=1).detach()
@@ -387,6 +393,7 @@ if __name__ == '__main__':
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", type=int, choices=[0, 1], default=1, help="Enable context feature (0/1)")
+    parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter testing,==1选择最相似的一个，>1则选择多个进行融合")
     parser.add_argument("--class_name", type=str, help="class name for a special dataset, for example, bottle in MVTec")
     args = parser.parse_args()
     args.visual_learner = bool(args.visual_learner)
@@ -398,9 +405,9 @@ if __name__ == '__main__':
     base_save_path = args.save_path
     base_checkpoint_path = args.checkpoint_path
     setup_seed(args.seed)
-    for k in [2, 4]:
+    for k in [1, 2, 4]:
         args.k_shots = k
         args.save_path = os.path.join(base_save_path, dataset_dir, str(args.k_shots))
         os.makedirs(args.save_path, exist_ok=True)
-        args.checkpoint_path = os.path.join(base_checkpoint_path, str(args.k_shots), "epoch_15.pth")
+        args.checkpoint_path = os.path.join(base_checkpoint_path, "epoch_15.pth")
         test(args)
