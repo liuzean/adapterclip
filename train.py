@@ -226,6 +226,7 @@ if __name__ == '__main__':
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", action="store_true", help="Enable context feature")
     parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter")
+    parser.add_argument("--Revised_content", type=str, default="#topk", help="checkpoint subfolder name for this revision")
 
     args = parser.parse_args()
     setup_seed(args.seed)
@@ -242,6 +243,6 @@ if __name__ == '__main__':
     args.pq_context = bool(ENABLE_PQ_CONTEXT)
 
     dataset_dir = os.path.basename(os.path.normpath(args.train_data_path))
-    args.save_path = os.path.join("./checkpoint", dataset_dir)
+    args.save_path = os.path.join("./checkpoint", dataset_dir, args.Revised_content)
     os.makedirs(args.save_path, exist_ok=True)
     train(args)

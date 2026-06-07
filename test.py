@@ -154,7 +154,7 @@ def test(args):
     pq_learner = PQAdapter(img_size, patch_size, context=pq_context, input_dim=input_dim, mid_dim=pq_mid_dim, layers_num=len(features_list))
 
 
-    logger.info('\n' + args.Revised_content)
+    logger.info('\n' + f"{args.Revised_content}  k_shots={args.k_shots}")
     logger.info('\n' + "loading model from: " + args.checkpoint_path)
     checkpoint_adapter = torch.load(args.checkpoint_path)
     textual_learner.load_state_dict(checkpoint_adapter["textual_learner"])
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", type=int, choices=[0, 1], default=1, help="Enable context feature (0/1)")
     parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter testing,==1选择最相似的一个，>1则选择多个进行融合")
-    parser.add_argument("--Revised_content", type=str, default="#test-1", help="note written before checkpoint loading log")
+    parser.add_argument("--Revised_content", type=str, default="#topk", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果
     parser.add_argument("--class_name", type=str, help="class name for a special dataset, for example, bottle in MVTec")
     args = parser.parse_args()
     args.visual_learner = bool(args.visual_learner)
