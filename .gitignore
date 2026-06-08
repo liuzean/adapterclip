@@ -19,6 +19,8 @@ pointad/
 #文件夹
 checkpoint/
 results/
+generate_dataset_json/
 
 #文件
 Experimental Record.txt
+Data_analysis.py

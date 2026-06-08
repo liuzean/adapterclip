@@ -171,8 +171,7 @@ def run(args):
         logger.info("\n" + "\n".join(comparison_table))
 
 
-def parse_args():
-    parser = argparse.ArgumentParser("Compare AdaptCLIP revised result tables")
+def parse_args(parser):
     parser.add_argument(
         "--log_path",
         type=str,
@@ -185,10 +184,11 @@ def parse_args():
         default=os.path.join("results", "Result_comparison"),
         help="directory to save the comparison log",
     )
-    parser.add_argument("--previous_Revised_content", type=str, default="#topk")
-    parser.add_argument("--next_Revised_content", type=str, default="#topk-test")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    run(parse_args())
+    parser = argparse.ArgumentParser("Compare AdaptCLIP revised result tables")
+    parser.add_argument("--previous_Revised_content", type=str, default="#old")
+    parser.add_argument("--next_Revised_content", type=str, default="#Top-k+gated residual")
+    run(parse_args(parser))
