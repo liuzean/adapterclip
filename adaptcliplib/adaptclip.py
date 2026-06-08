@@ -749,9 +749,10 @@ class PQAdapter(nn.Module):
 
         self.local_adapter = nn.ModuleList([local_adapter for i in range(layers_num)])
         self.global_adapter = nn.ModuleList([global_adapter for i in range(layers_num)])
+        self.gate_logits = nn.Parameter(torch.zeros(layers_num))
 
 
-    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats, pq_topk=1):
+    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats, pq_topk=1, pq_gated_residual=True):
         if pq_topk < 1:
             raise ValueError("pq_topk must be >= 1")
 
@@ -790,10 +791,15 @@ class PQAdapter(nn.Module):
             query_patch_feat = query_patch_feat.permute(0, 2, 1).reshape(b, dim, self.img_size//self.patch_size, self.img_size//self.patch_size)
             align_prompt_feat = align_prompt_feat.permute(0, 2, 1).reshape(b, dim, self.img_size//self.patch_size, self.img_size//self.patch_size)
 
+            diff_patch_feat = torch.abs(query_patch_feat - align_prompt_feat)
             if self.context:
-                fusion_patch_feat = query_patch_feat + torch.abs(query_patch_feat - align_prompt_feat)
+                if pq_gated_residual:
+                    gate = torch.sigmoid(self.gate_logits[lay_idx])
+                    fusion_patch_feat = gate * query_patch_feat + (1.0 - gate) * diff_patch_feat
+                else:
+                    fusion_patch_feat = query_patch_feat + diff_patch_feat
             else:
-                fusion_patch_feat = torch.abs(query_patch_feat - align_prompt_feat)
+                fusion_patch_feat = diff_patch_feat
 
             fusion_patch_feat = self.sharebn[lay_idx](fusion_patch_feat)  # bach normalization
 

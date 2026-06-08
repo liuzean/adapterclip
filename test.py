@@ -275,6 +275,7 @@ def test(args):
                 prompt_feats,
                 prompt_patch_feats,
                 pq_topk=args.pq_topk,
+                pq_gated_residual=args.pq_gated_residual,
             )
 
             local_pq_map_list = [x[:, 1].unsqueeze(1) for x in local_pq_map_list]
@@ -395,13 +396,15 @@ if __name__ == '__main__':
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", type=int, choices=[0, 1], default=1, help="Enable context feature (0/1)")
     parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter testing,==1选择最相似的一个，>1则选择多个进行融合")
-    parser.add_argument("--Revised_content", type=str, default="#topk", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果
+    parser.add_argument("--Revised_content", type=str, default="#Top-k+gated residual", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果
+    parser.add_argument("--pq_gated_residual", type=int, choices=[0, 1], default=1, help="Enable gated residual fusion in PQAdapter (0/1)")
     parser.add_argument("--class_name", type=str, help="class name for a special dataset, for example, bottle in MVTec")
     args = parser.parse_args()
     args.visual_learner = bool(args.visual_learner)
     args.textual_learner = bool(args.textual_learner)
     args.pq_learner = bool(args.pq_learner)
     args.pq_context = bool(args.pq_context)
+    args.pq_gated_residual = bool(args.pq_gated_residual)
     print(args)
     dataset_dir = os.path.basename(os.path.normpath(args.test_data_path))
     base_save_path = args.save_path
@@ -411,5 +414,5 @@ if __name__ == '__main__':
         args.k_shots = k
         args.save_path = os.path.join(base_save_path, dataset_dir, str(args.k_shots))
         os.makedirs(args.save_path, exist_ok=True)
-        args.checkpoint_path = os.path.join(base_checkpoint_path, "epoch_15.pth")
+        args.checkpoint_path = os.path.join(base_checkpoint_path, args.Revised_content, "epoch_15.pth")
         test(args)
