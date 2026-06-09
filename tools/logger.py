@@ -21,9 +21,14 @@ def get_logger(save_path, log_file):
     # logger
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
+        handler.close()
         root_logger.removeHandler(handler)
     root_logger.setLevel(logging.WARNING)
     logger = logging.getLogger('test')
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
+    logger.propagate = False
     formatter = logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)s: %(message)s',
                                     datefmt='%y-%m-%d %H:%M:%S')
     logger.setLevel(logging.INFO)
