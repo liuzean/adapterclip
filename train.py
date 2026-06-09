@@ -67,7 +67,15 @@ def train(args):
     # ====================== Init Adapters ======================
     textual_learner = TextualAdapter(model.to("cpu"), img_size, args.n_ctx)
     visual_learner = VisualAdapter(img_size, patch_size, input_dim=input_dim, reduction=vl_reduction)
-    pq_learner = PQAdapter(img_size, patch_size, context=pq_context, input_dim=input_dim, mid_dim=pq_mid_dim, layers_num=len(features_list))
+    pq_learner = PQAdapter(
+        img_size,
+        patch_size,
+        context=pq_context,
+        input_dim=input_dim,
+        mid_dim=pq_mid_dim,
+        layers_num=len(features_list),
+        gated_residual=args.pq_gated_residual,
+    )
 
     model.to(device)
     textual_learner.to(device)
@@ -173,7 +181,7 @@ def train(args):
                     prompt_feats,
                     prompt_patch_feats,
                     pq_topk=args.pq_topk,
-                    pq_gated_residual=args.pq_gated_residual,
+                    pq_topk_number=args.pq_topk_number,
                 )
 
                 for i in range(len(global_logit)):
@@ -226,7 +234,8 @@ if __name__ == '__main__':
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", action="store_true", help="Enable context feature")
-    parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter")
+    parser.add_argument("--pq_topk", type=int, choices=[0, 1], default=0, help="PQAdapter top-k branch: 0=top-1 original route, 1=top-k route")
+    parser.add_argument("--pq_topk_number", type=int, default=5, help="number of nearest prompt patches used when pq_topk=1")
     parser.add_argument("--pq_gated_residual", type=int, choices=[0, 1], default=1, help="Enable gated residual fusion in PQAdapter")
     parser.add_argument("--Revised_content", type=str, default="#Top-k+gated residual", help="checkpoint subfolder name for this revision")
 

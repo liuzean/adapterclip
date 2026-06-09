@@ -151,7 +151,15 @@ def test(args):
     # ====================== Init Adapters ======================
     textual_learner = TextualAdapter(model.to("cpu"), img_size, args.n_ctx)
     visual_learner = VisualAdapter(img_size, patch_size, input_dim=input_dim, reduction=vl_reduction)
-    pq_learner = PQAdapter(img_size, patch_size, context=pq_context, input_dim=input_dim, mid_dim=pq_mid_dim, layers_num=len(features_list))
+    pq_learner = PQAdapter(
+        img_size,
+        patch_size,
+        context=pq_context,
+        input_dim=input_dim,
+        mid_dim=pq_mid_dim,
+        layers_num=len(features_list),
+        gated_residual=args.pq_gated_residual,
+    )
 
 
     logger.info('\n' + f"{args.Revised_content}  k_shots={args.k_shots}")
@@ -275,7 +283,7 @@ def test(args):
                 prompt_feats,
                 prompt_patch_feats,
                 pq_topk=args.pq_topk,
-                pq_gated_residual=args.pq_gated_residual,
+                pq_topk_number=args.pq_topk_number,
             )
 
             local_pq_map_list = [x[:, 1].unsqueeze(1) for x in local_pq_map_list]
@@ -395,7 +403,8 @@ if __name__ == '__main__':
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", type=int, choices=[0, 1], default=1, help="Enable context feature (0/1)")
-    parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter testing,==1选择最相似的一个，>1则选择多个进行融合")
+    parser.add_argument("--pq_topk", type=int, choices=[0, 1], default=0, help="PQAdapter top-k branch: 0=top-1 original route, 1=top-k route")
+    parser.add_argument("--pq_topk_number", type=int, default=5, help="number of nearest prompt patches used when pq_topk=1")
     parser.add_argument("--Revised_content", type=str, default="#Top-k+gated residual", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果
     parser.add_argument("--pq_gated_residual", type=int, choices=[0, 1], default=1, help="Enable gated residual fusion in PQAdapter (0/1)")
     parser.add_argument("--class_name", type=str, help="class name for a special dataset, for example, bottle in MVTec")

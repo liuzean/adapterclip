@@ -713,7 +713,7 @@ class VisualAdapter(nn.Module):
 
 
 class PQAdapter(nn.Module):
-    def __init__(self, img_size, patch_size, context=True, input_dim=768, mid_dim=128, layers_num=4):
+    def __init__(self, img_size, patch_size, context=True, input_dim=768, mid_dim=128, layers_num=4, gated_residual=False):
         super().__init__()
         self.img_size = img_size
         self.patch_size =  patch_size
@@ -721,6 +721,7 @@ class PQAdapter(nn.Module):
         self.layers_num = layers_num
         self.mid_dim = mid_dim
         self.context = context
+        self.gated_residual = gated_residual
 
         self.sharebn = nn.ModuleList([nn.BatchNorm2d(input_dim) for i in range(layers_num)])
 
@@ -749,12 +750,15 @@ class PQAdapter(nn.Module):
 
         self.local_adapter = nn.ModuleList([local_adapter for i in range(layers_num)])
         self.global_adapter = nn.ModuleList([global_adapter for i in range(layers_num)])
-        self.gate_logits = nn.Parameter(torch.zeros(layers_num))
+        if self.gated_residual:
+            self.gate_logits = nn.Parameter(torch.zeros(layers_num))
 
 
-    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats, pq_topk=1, pq_gated_residual=True):
-        if pq_topk < 1:
-            raise ValueError("pq_topk must be >= 1")
+    def forward(self, query_feats, query_patch_feats, prompt_feats, prompt_patch_feats, pq_topk=0, pq_topk_number=5):
+        if pq_topk not in (0, 1):
+            raise ValueError("pq_topk must be 0 or 1")
+        if pq_topk_number < 1:
+            raise ValueError("pq_topk_number must be >= 1")
 
         global_logits, local_scores, align_scores = [], [], []
         # patch-level
@@ -772,11 +776,11 @@ class PQAdapter(nn.Module):
             prompt_patch_feat = prompt_patch_feat.reshape(b, -1, dim)
 
             distance = 1.0 - torch.bmm(query_patch_feat, prompt_patch_feat.permute(0, 2, 1))
-            if pq_topk == 1:
+            if pq_topk == 0:
                 align_score, min_idx = torch.min(distance, dim = -1)
                 align_prompt_feat = prompt_patch_feat[torch.arange(min_idx.size(0), device=min_idx.device).unsqueeze(1), min_idx]
             else:
-                topk = min(pq_topk, distance.shape[-1])
+                topk = min(pq_topk_number, distance.shape[-1])
                 topk_dist, topk_idx = torch.topk(distance, k=topk, dim=-1, largest=False)
                 topk_weight = torch.softmax(-topk_dist, dim=-1)
                 batch_idx = torch.arange(b, device=topk_idx.device).view(b, 1, 1).expand_as(topk_idx)
@@ -793,7 +797,7 @@ class PQAdapter(nn.Module):
 
             diff_patch_feat = torch.abs(query_patch_feat - align_prompt_feat)
             if self.context:
-                if pq_gated_residual:
+                if self.gated_residual:
                     gate = torch.sigmoid(self.gate_logits[lay_idx])
                     fusion_patch_feat = gate * query_patch_feat + (1.0 - gate) * diff_patch_feat
                 else:

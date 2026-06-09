@@ -151,7 +151,15 @@ def test(args):
     # ====================== Init Adapters ======================
     textual_learner = TextualAdapter(model.to("cpu"), img_size, args.n_ctx)
     visual_learner = VisualAdapter(img_size, patch_size, input_dim=input_dim, reduction=vl_reduction)
-    pq_learner = PQAdapter(img_size, patch_size, context=pq_context, input_dim=input_dim, mid_dim=pq_mid_dim, layers_num=len(features_list))
+    pq_learner = PQAdapter(
+        img_size,
+        patch_size,
+        context=pq_context,
+        input_dim=input_dim,
+        mid_dim=pq_mid_dim,
+        layers_num=len(features_list),
+        gated_residual=args.pq_gated_residual,
+    )
 
 
     logger.info('\n' + f"{args.Revised_content}  k_shots={args.k_shots}")
@@ -275,7 +283,7 @@ def test(args):
                 prompt_feats,
                 prompt_patch_feats,
                 pq_topk=args.pq_topk,
-                pq_gated_residual=args.pq_gated_residual,
+                pq_topk_number=args.pq_topk_number,
             )
 
             local_pq_map_list = [x[:, 1].unsqueeze(1) for x in local_pq_map_list]
@@ -374,7 +382,7 @@ def test(args):
 if __name__ == '__main__':
     datasets_root = r"E:\projects\datasets"
     dataset_names = [
-        "Visa","BTAD","MPDD","SDD","DTD",
+        "BTAD","MPDD","SDD","DTD","mvtec3d",   
     ]
 
     parser = argparse.ArgumentParser("AdaptCLIP", add_help=True)
@@ -400,9 +408,10 @@ if __name__ == '__main__':
     parser.add_argument("--vl_reduction", type=int, default=4, help="the reduction number of visual learner")
     parser.add_argument("--pq_mid_dim", type=int, default=128, help="the number of the first hidden layer in pqadapter")
     parser.add_argument("--pq_context", type=int, choices=[0, 1], default=1, help="Enable context feature (0/1)")
-    parser.add_argument("--pq_topk", type=int, default=5, help="top-k nearest prompt patches for PQAdapter testing,==1选择最相似的一个，>1则选择多个进行融合")
-    parser.add_argument("--Revised_content", type=str, default="#Top-k+gated residual", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果
-    parser.add_argument("--pq_gated_residual", type=int, choices=[0, 1], default=1, help="Enable gated residual fusion in PQAdapter (0/1)")
+    parser.add_argument("--pq_topk", type=int, choices=[0, 1], default=0, help="PQAdapter top-k branch: 0=top-1 original route, 1=top-k route")
+    parser.add_argument("--pq_topk_number", type=int, default=5, help="number of nearest prompt patches used when pq_topk=1")     #控制topk的k值
+    parser.add_argument("--Revised_content", type=str, default="#old", help="note written before checkpoint loading log")   #在结果输出保存的文件内备注修改内容，方便区分和查找不同修改的效果,同时跟调用权重文件夹命名保持一致
+    parser.add_argument("--pq_gated_residual", type=int, choices=[0, 1], default=0, help="Enable gated residual fusion in PQAdapter (0/1)")       #在测试时启用PQAdapter的门控残差融合机制，融合方式为：融合后特征 = sigmoid(align_score) * pq_adapter特征 + (1 - sigmoid(align_score)) * 原始特征，是topk的下一个改进版本，但目前效果不佳，需要进一步调试和改进，暂时作为可选项保留在代码中，0就是原来的融合方式，1则启用门控残差融合
     parser.add_argument("--class_name", type=str, help="class name for a special dataset, for example, bottle in MVTec")
     args = parser.parse_args()
     args.visual_learner = bool(args.visual_learner)
@@ -414,9 +423,16 @@ if __name__ == '__main__':
     base_save_path = args.save_path
     base_checkpoint_path = args.checkpoint_path
     setup_seed(args.seed)
+    missing_datasets = []
     for dataset_name in dataset_names:
+        dataset_path = os.path.join(datasets_root, dataset_name)
+        if not os.path.isdir(dataset_path):
+            missing_datasets.append(dataset_name)
+            print(f"Skip missing dataset: {dataset_name} ({dataset_path})")
+            continue
+
         args.dataset = dataset_name
-        args.test_data_path = os.path.join(datasets_root, dataset_name)
+        args.test_data_path = dataset_path
         dataset_dir = os.path.basename(os.path.normpath(args.test_data_path))
 
         for k in [1, 2, 4]:
@@ -425,3 +441,8 @@ if __name__ == '__main__':
             os.makedirs(args.save_path, exist_ok=True)
             args.checkpoint_path = os.path.join(base_checkpoint_path, args.Revised_content, "epoch_15.pth")
             test(args)
+
+    if missing_datasets:
+        print("Missing datasets:")
+        for dataset_name in missing_datasets:
+            print(dataset_name)
